@@ -1,0 +1,19 @@
+# Environments & virtualenvs
+venv/
+.env
+__pycache__/
+*.pyc
+
+# Node & Frontend
+node_modules/
+dist/
+.DS_Store
+
+# Logs & PIDs
+*.log
+*.pid
+server.pid
+
+# Databases & local user files
+data/*.db
+data/uploads/
