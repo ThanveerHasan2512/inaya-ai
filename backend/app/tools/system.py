@@ -26,6 +26,7 @@ def get_system_telemetry() -> Dict[str, Any]:
         uptime_str = f"{hours}h {minutes}m"
 
         return {
+            "success": True,
             "cpu_usage": cpu_usage,
             "ram_usage": ram_usage,
             "d_drive_free_gb": d_free_gb,
@@ -35,6 +36,7 @@ def get_system_telemetry() -> Dict[str, Any]:
         }
     except Exception as exc:
         return {
+            "success": False,
             "cpu_usage": 0.0,
             "ram_usage": 0.0,
             "d_drive_free_gb": 0.0,

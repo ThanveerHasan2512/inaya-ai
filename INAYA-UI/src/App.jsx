@@ -203,9 +203,9 @@ export default function App() {
         if (data.tools_executed && data.tools_executed.length > 0) {
           data.tools_executed.forEach(t => {
             const isSuccess = t.result?.success !== false;
-            const detailMsg = t.result?.message || t.result?.error || JSON.stringify(t.result || {});
+            const detailMsg = t.result?.details || t.result?.message || t.result?.error || JSON.stringify(t.result || {});
             addActivity(
-              `${isSuccess ? 'Executed' : 'Failed'}: ${t.result?.app_name || t.tool}`,
+              `${isSuccess ? 'Executed' : 'Failed'}: ${t.result?.app_name || t.tool || t.name}`,
               detailMsg,
               isSuccess ? 'done' : 'error'
             );
@@ -531,7 +531,7 @@ export default function App() {
                                   }}
                                 >
                                   <strong>{isSuccess ? '✓ Action Executed' : '✗ Action Blocked / Failed'}:</strong>{' '}
-                                  <span>{t.result?.message || t.result?.error || t.tool}</span>
+                                  <span>{t.result?.details || t.result?.message || t.result?.error || t.tool || t.name}</span>
                                 </div>
                               );
                             })}

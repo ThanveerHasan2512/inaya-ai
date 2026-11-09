@@ -5,7 +5,7 @@ from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse
 
 from .config import settings
-from .routers import health, config_api, chat, tools_api, providers_api
+from .routers import health, config_api, chat, tools_api, providers_api, tasks_api, approval_api
 
 app = FastAPI(
     title=settings.PROJECT_NAME,
@@ -28,6 +28,8 @@ app.include_router(config_api.router)
 app.include_router(chat.router)
 app.include_router(tools_api.router)
 app.include_router(providers_api.router)
+app.include_router(tasks_api.router)
+app.include_router(approval_api.router)
 
 # Mount frontend static distribution if built
 dist_path = settings.FRONTEND_DIST

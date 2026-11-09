@@ -17,3 +17,17 @@ server.pid
 # Databases & local user files
 data/*.db
 data/uploads/
+
+# Local backups and temporary development files
+backups/
+scratch/
+*.backup
+*.bak
+
+# Environment-specific configuration
+.env.*
+!.env.example
+
+# Local database files
+*.sqlite
+*.sqlite3

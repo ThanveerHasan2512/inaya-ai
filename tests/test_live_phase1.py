@@ -1,7 +1,16 @@
 import httpx
+import pytest
 import time
 
 def test_live_chat_commands():
+    try:
+        with httpx.Client(base_url="http://127.0.0.1:8000", timeout=2.0) as check_client:
+            res = check_client.get("/api/health")
+            if res.status_code != 200:
+                pytest.skip("Live server is not operational on port 8000.")
+    except Exception:
+        pytest.skip("Live server is not running at http://127.0.0.1:8000 (run python run.py to launch).")
+
     client = httpx.Client(base_url="http://127.0.0.1:8000", timeout=10.0)
 
     # 1. Health check

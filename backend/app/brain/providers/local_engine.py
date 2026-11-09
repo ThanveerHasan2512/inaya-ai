@@ -4,6 +4,8 @@ from .base import BaseProvider
 from ..intent import extract_intent
 from ...tools.registry import execute_tool
 from ...tools.apps import APPROVED_APPLICATIONS
+from ...agent.orchestrator import orchestrator
+from ...agent.state import TaskStatus
 from ...config import settings
 
 
@@ -33,17 +35,41 @@ class LocalEngineProvider(BaseProvider):
             }
 
         last_content = messages[-1].get("content", "").strip()
+
+        # Check for multi-step / compound instructions (e.g. "Open Notepad and check CPU")
+        plan = await orchestrator.receive_and_plan(last_content)
+        if plan.status != TaskStatus.FAILED and len(plan.subtasks) > 1:
+            executed_plan = await orchestrator.run_plan(plan)
+            tools_exec = []
+            for sub in executed_plan.subtasks:
+                tools_exec.append({
+                    "tool": sub.tool,
+                    "name": sub.tool,
+                    "args": sub.args,
+                    "arguments": sub.args,
+                    "result": sub.result,
+                })
+            return {
+                "reply": executed_plan.final_report or f"Completed {len(executed_plan.subtasks)} operations for you, {settings.USER_NAME}.",
+                "provider": "local",
+                "tools_executed": tools_exec,
+            }
+
         analysis = extract_intent(last_content)
         intent = analysis.get("intent")
+        tool_name = analysis.get("tool")
+        arguments = analysis.get("arguments", {})
         tools_executed = []
 
         # 1. Launch Approved Application
         if intent == "LAUNCH_APP":
-            app_name = analysis.get("arguments", {}).get("app_name")
+            app_name = arguments.get("app_name")
             result = execute_tool("launch_application", {"app_name": app_name})
             tools_executed.append({
                 "tool": "launch_application",
+                "name": "launch_application",
                 "args": {"app_name": app_name},
+                "arguments": {"app_name": app_name},
                 "result": result,
             })
 
@@ -62,7 +88,7 @@ class LocalEngineProvider(BaseProvider):
 
         # 2. Launch Unapproved Application (Security Protection)
         if intent == "LAUNCH_UNAPPROVED_APP":
-            app_name = analysis.get("arguments", {}).get("app_name", "unknown")
+            app_name = arguments.get("app_name", "unknown")
             approved_list = sorted(list({v["name"] for v in APPROVED_APPLICATIONS.values()}))
             reply = (
                 f"For security, INAYA only launches verified applications from the approved registry. "
@@ -80,7 +106,9 @@ class LocalEngineProvider(BaseProvider):
             telemetry = execute_tool("get_system_telemetry", {})
             tools_executed.append({
                 "tool": "get_system_telemetry",
+                "name": "get_system_telemetry",
                 "args": {},
+                "arguments": {},
                 "result": telemetry,
             })
             reply = (
@@ -122,10 +150,10 @@ class LocalEngineProvider(BaseProvider):
             approved_list = sorted(list({v["name"] for v in APPROVED_APPLICATIONS.values()}))
             reply = (
                 f"Here is what I can do for you right now, {settings.USER_NAME}:\n"
-                f"• Windows Applications: 'Open Notepad', 'Launch Calculator', 'Open File Explorer', 'Start Chrome', 'Open Edge', 'Open VS Code', 'Command Prompt'\n"
-                f"• System Diagnostics: 'System status', 'Check CPU and RAM', 'D: drive storage'\n"
-                f"• Clock & Calendar: 'What time is it?', 'Current date'\n"
-                f"• Controlled Execution: All commands are strictly validated against an approved allowlist.\n\n"
+                f"• Windows Applications: 'Open Notepad', 'Launch Calculator', 'Open File Explorer', 'Start Chrome', 'Open Edge', 'Open VS Code', 'Close Notepad'\n"
+                f"• Files & Folders: 'Create file test.txt with Hello', 'Read file notes.txt', 'Create folder my_project', 'List files in D:\\INAYA'\n"
+                f"• System Diagnostics: 'System status', 'Check CPU and RAM', 'Running processes', 'System info'\n"
+                f"• Web & Coding: 'Search the web for ...', 'Create Python project ...', 'Open website ...'\n\n"
                 f"Approved applications: {', '.join(approved_list)}."
             )
             return {
@@ -134,12 +162,31 @@ class LocalEngineProvider(BaseProvider):
                 "tools_executed": [],
             }
 
-        # 7. Fallback for open-ended or unrecognized instructions
+        # 7. Generic Tool Execution (Files, Browser, Coding, System tools)
+        if tool_name:
+            result = execute_tool(tool_name, arguments)
+            tools_executed.append({
+                "tool": tool_name,
+                "name": tool_name,
+                "args": arguments,
+                "arguments": arguments,
+                "result": result,
+            })
+            details = result.get("details") or result.get("message") or f"Executed {tool_name} successfully."
+            if not result.get("success", False):
+                details = f"Action failed: {result.get('error', 'Unknown error')}"
+            return {
+                "reply": details,
+                "provider": "local",
+                "tools_executed": tools_executed,
+            }
+
+        # 8. Fallback for open-ended or unrecognized instructions
         reply = (
             f"I received: \"{last_content}\".\n"
             f"I am currently operating in the verified Local Assistant mode. "
-            f"I can control approved Windows applications (Notepad, Calculator, File Explorer, Chrome, Edge, VS Code) "
-            f"and report live system telemetry. You can ask me to open any of these or type 'Help' for guidance."
+            f"I can operate Windows applications (Notepad, VS Code, Calculator, File Explorer, Chrome, Edge), "
+            f"manage files, and report system vitals. Type 'Help' to see available capabilities."
         )
         return {
             "reply": reply,
